@@ -40,7 +40,7 @@ class BaseLLMTranslation(LLMTranslation):
         self.img_as_llm_input = llm_settings.get('image_input_enabled', True)
         self.temperature = 1.0
         self.top_p = 0.95
-        self.max_tokens = 5000
+        self.max_tokens = 32768
         
     def translate(self, blk_list: list[TextBlock], image: np.ndarray, extra_context: str) -> list[TextBlock]:
         """
@@ -55,9 +55,11 @@ class BaseLLMTranslation(LLMTranslation):
             List of updated TextBlock objects with translations
         """
         entire_raw_text = get_raw_text(blk_list)
-        system_prompt = self.get_system_prompt(self.source_lang, self.target_lang)
-        user_prompt = f"{extra_context}\nMake the translation sound as natural as possible.\nTranslate this:\n{entire_raw_text}"
-        
+        #system_prompt = self.get_system_prompt(self.source_lang, self.target_lang)
+        #user_prompt = f"{extra_context}\nMake the translation sound as natural as possible.\nTranslate this:\n{entire_raw_text}"
+        system_prompt = self.get_system_prompt_v2(self.source_lang, self.target_lang)
+        user_prompt = entire_raw_text
+
         entire_translated_text = self._perform_translation(user_prompt, system_prompt, image)
         set_texts_from_json(blk_list, entire_translated_text)
             

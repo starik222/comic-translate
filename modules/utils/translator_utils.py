@@ -43,6 +43,7 @@ def get_raw_translation(blk_list: list[TextBlock]):
     return raw_translations_json
 
 def set_texts_from_json(blk_list: list[TextBlock], json_string: str):
+    json_string = remove_think_block(json_string)
     match = re.search(r"\{[\s\S]*\}", json_string)
     if match:
         # Extract the JSON string from the matched regular expression
@@ -57,6 +58,14 @@ def set_texts_from_json(blk_list: list[TextBlock], json_string: str):
                 print(f"Warning: {block_key} not found in JSON string.")
     else:
         print("No JSON found in the input string.")
+
+
+def remove_think_block(text: str):
+    if not text:
+        return text
+    cleaned_text = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL)
+    return cleaned_text.strip()
+
 
 def set_upper_case(blk_list: list[TextBlock], upper_case: bool):
     for blk in blk_list:
