@@ -164,8 +164,8 @@ class SettingsPageUI(QtWidgets.QWidget):
 
     def apply_remote_catalog(self, catalog: dict) -> None:
         """Update only server-backed choices; local tools remain bundled."""
-        translators = [item for item in catalog["translators"] if isinstance(item, dict) and item.get("id")]
-        ocr_models = [item for item in catalog["ocr_models"] if isinstance(item, dict) and item.get("id")]
+        translators = [item for item in catalog["translators"]] if isinstance(catalog.get("translators"), list) else []
+        ocr_models = [item for item in catalog["ocr_models"]] if isinstance(catalog.get("ocr_models"), list) else []
         self.llms_page.set_image_context_credits(int(catalog.get("image_context_credits", 1)))
         if translators:
             self._replace_combo_items(self.translator_combo, translators, include_custom=True)
@@ -184,6 +184,7 @@ class SettingsPageUI(QtWidgets.QWidget):
         if is_ocr:
             return f"{label} (+{credits} Credit{'s' if credits != 1 else ''})" if credits else label
         return f"{label} ({credits} Credit{'s' if credits != 1 else ''})"
+
     def _replace_combo_items(self, combo, items: list[dict], include_custom: bool = False) -> None:
         current_id = combo.currentData() or combo.currentText()
         by_id = {item["id"]: item for item in items}
@@ -255,6 +256,9 @@ class SettingsPageUI(QtWidgets.QWidget):
         # LLMs
         self.image_checkbox = self.llms_page.image_checkbox
         self.extra_context = self.llms_page.extra_context
+        self.context_checkbox = self.llms_page.context_checkbox
+        self.context_limit_spinbox = self.llms_page.context_limit_spinbox
+        self.clear_context_button = self.llms_page.clear_context_button
 
         # Text rendering
         self.min_font_spinbox = self.text_rendering_page.min_font_spinbox

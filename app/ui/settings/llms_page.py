@@ -3,6 +3,8 @@ from ..dayu_widgets.label import MLabel
 from ..dayu_widgets.text_edit import MTextEdit
 from ..dayu_widgets.check_box import MCheckBox
 from ..dayu_widgets.collapse import MCollapse
+from ..dayu_widgets.spin_box import MSpinBox
+from ..dayu_widgets.push_button import MPushButton
 
 class LlmsPage(QtWidgets.QWidget):
     DEFAULT_EXTRA_CONTEXT_LIMIT = 1000
@@ -18,6 +20,27 @@ class LlmsPage(QtWidgets.QWidget):
         self.set_image_context_credits(1)
         self.image_checkbox.setChecked(False)
 
+        # Context settings
+        self.context_checkbox = MCheckBox(self.tr("Use translation context (include previous requests/responses)"))
+        self.context_checkbox.setChecked(False)
+
+        context_pair_layout = QtWidgets.QHBoxLayout()
+        self.context_label = MLabel(self.tr("Previous request/response pairs:"))
+        self.context_limit_spinbox = MSpinBox().small()
+        self.context_limit_spinbox.setMinimum(1)
+        self.context_limit_spinbox.setMaximum(50)
+        self.context_limit_spinbox.setValue(3)
+        self.context_limit_spinbox.setFixedWidth(70)
+
+        self.clear_context_button = MPushButton(self.tr("Clear Context")).small()
+        self.clear_context_button.setFixedWidth(110)
+
+        context_pair_layout.addWidget(self.context_label)
+        context_pair_layout.addWidget(self.context_limit_spinbox)
+        context_pair_layout.addSpacing(15)
+        context_pair_layout.addWidget(self.clear_context_button)
+        context_pair_layout.addStretch(1)
+
         # Left
         left_layout = QtWidgets.QVBoxLayout()
         prompt_label = MLabel(self.tr("Extra Context:"))
@@ -26,6 +49,9 @@ class LlmsPage(QtWidgets.QWidget):
         left_layout.addWidget(prompt_label)
         left_layout.addWidget(self.extra_context)
         left_layout.addWidget(self.image_checkbox)
+        left_layout.addSpacing(8)
+        left_layout.addWidget(self.context_checkbox)
+        left_layout.addLayout(context_pair_layout)
         left_layout.addStretch(1)
 
         # Right
@@ -43,6 +69,13 @@ class LlmsPage(QtWidgets.QWidget):
         v.addStretch(1)
 
         self.extra_context.textChanged.connect(self._limit_extra_context)
+        self.context_checkbox.toggled.connect(self._on_context_checkbox_toggled)
+        self._on_context_checkbox_toggled(self.context_checkbox.isChecked())
+
+    def _on_context_checkbox_toggled(self, checked: bool) -> None:
+        self.context_label.setEnabled(checked)
+        self.context_limit_spinbox.setEnabled(checked)
+        self.clear_context_button.setEnabled(checked)
 
     def set_extra_context_unlimited(self, enabled: bool) -> None:
         self._extra_context_limit = None if enabled else self.DEFAULT_EXTRA_CONTEXT_LIMIT
@@ -69,4 +102,3 @@ class LlmsPage(QtWidgets.QWidget):
             new_position = min(position, max_length)
             cursor.setPosition(new_position)
             self.extra_context.setTextCursor(cursor)
-

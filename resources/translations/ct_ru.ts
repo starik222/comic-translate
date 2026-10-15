@@ -457,6 +457,18 @@
         <source>Extra Context:</source>
         <translation>Дополнительный контекст:</translation>
     </message>
+    <message>
+        <source>Use translation context (include previous requests/responses)</source>
+        <translation>Использовать контекст перевода (включать предыдущие запросы/ответы)</translation>
+    </message>
+    <message>
+        <source>Previous request/response pairs:</source>
+        <translation>Количество предыдущих пар запрос/ответ:</translation>
+    </message>
+    <message>
+        <source>Clear Context</source>
+        <translation>Очистить контекст</translation>
+    </message>
 </context>
 <context>
     <name>Messages</name>
@@ -1034,6 +1046,10 @@ This folder is separate from Auto-Recover snapshots.</source>
 </context>
 <context>
     <name>SettingsPage</name>
+    <message>
+        <source>Translation context cleared</source>
+        <translation>Контекст перевода очищен</translation>
+    </message>
     <message>
         <location filename="../../app/ui/settings/settings_page.py" line="515"/>
         <source>OK</source>

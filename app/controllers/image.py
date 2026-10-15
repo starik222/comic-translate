@@ -322,6 +322,12 @@ class ImageStateController:
         self.main.curr_img_idx = -1
         self.main.set_project_clean()
 
+        try:
+            from modules.translation.llm.custom import CustomTranslation
+            CustomTranslation.clear_context()
+        except Exception:
+            pass
+
     def thread_load_images(self, paths: List[str]):
         if paths and paths[0].lower().endswith('.ctpr'):
             self.main.project_ctrl.thread_load_project(paths[0])

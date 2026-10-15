@@ -19,6 +19,8 @@ class BaseLLMTranslation(LLMTranslation):
         self.api_url = None
         self.model = None
         self.img_as_llm_input = False
+        self.context_enabled = False
+        self.context_pairs = 3
         self.temperature = None
         self.max_tokens = None
         self.timeout = 30  
@@ -37,6 +39,8 @@ class BaseLLMTranslation(LLMTranslation):
         self.source_lang = source_lang
         self.target_lang = target_lang
         self.img_as_llm_input = llm_settings.get('image_input_enabled', True)
+        self.context_enabled = bool(llm_settings.get('context_enabled', False))
+        self.context_pairs = int(llm_settings.get('context_pairs', 3))
         self.temperature = 1.0
         self.max_tokens = 32768
         

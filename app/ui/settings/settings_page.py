@@ -108,6 +108,7 @@ class SettingsPage(QtWidgets.QWidget):
         self.ui.check_update_button.clicked.connect(self.check_for_updates)
         self.ui.use_gpu_checkbox.stateChanged.connect(self._on_gpu_setting_changed)
         self.ui.gpu_device_combo.currentIndexChanged.connect(self._on_gpu_setting_changed)
+        self.ui.clear_context_button.clicked.connect(self.clear_translation_context)
         self._sync_extra_context_limit(self.ui.translator_combo.currentText())
 
     def _sync_extra_context_limit(self, translator: str) -> None:
@@ -153,10 +154,22 @@ class SettingsPage(QtWidgets.QWidget):
                 return combo_idx
         return 0
 
+    def clear_translation_context(self):
+        try:
+            from modules.translation.llm.custom import CustomTranslation
+            CustomTranslation.clear_context()
+            from ..dayu_widgets.message import MMessage
+            MMessage.success(self.tr("Translation context cleared"), parent=self)
+            logger.info("Translation context cleared by user.")
+        except Exception as e:
+            logger.error(f"Failed to clear translation context: {e}")
+
     def get_llm_settings(self):
         return {
             'extra_context': self.ui.extra_context.toPlainText(),
             'image_input_enabled': self.ui.image_checkbox.isChecked(),
+            'context_enabled': self.ui.context_checkbox.isChecked(),
+            'context_pairs': int(self.ui.context_limit_spinbox.value()),
         }
 
     def get_export_settings(self):
@@ -446,6 +459,10 @@ class SettingsPage(QtWidgets.QWidget):
         settings.beginGroup('llm')
         self.ui.extra_context.setPlainText(settings.value('extra_context', ''))
         self.ui.image_checkbox.setChecked(settings.value('image_input_enabled', False, type=bool))
+        context_enabled = settings.value('context_enabled', False, type=bool)
+        self.ui.context_checkbox.setChecked(context_enabled)
+        self.ui.context_limit_spinbox.setValue(settings.value('context_pairs', 3, type=int))
+        self.ui.llms_page._on_context_checkbox_toggled(context_enabled)
         settings.endGroup()
 
         # Load export settings
