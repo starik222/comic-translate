@@ -82,6 +82,48 @@ class CustomTranslation(GPTTranslation):
         self.context_enabled = bool(llm_settings.get('context_enabled', False))
         self.context_pairs = int(llm_settings.get('context_pairs', 3))
 
+    def get_system_prompt_v2(self, source_lang: str, target_lang: str) -> str:
+        """
+        Get system prompt for LLM translation.
+        When context is enabled, requests an additional scene_description for narrative continuity.
+        """
+        if getattr(self, "context_enabled", False):
+            return self.get_context_system_prompt(source_lang, target_lang)
+        return super().get_system_prompt_v2(source_lang, target_lang)
+
+    def get_context_system_prompt(self, source_lang: str, target_lang: str) -> str:
+        """
+        Specialized system prompt that requests a scene_description alongside the translated blocks.
+        """
+        return f"""You are an expert manga and comic translator specializing in {source_lang} to {target_lang} localization. Your goal is to accurately translate text extracted via OCR, using the provided manga page image to understand the context and correct any OCR mistakes.
+### INPUT:
+1. An image of a manga/comic page (if provided).
+2. A JSON object containing text blocks extracted via OCR (keys like "block_0", "block_1", and {source_lang} text as values).
+3. Previous conversation turns (if present) representing preceding comic pages, including their scene descriptions and dialogue translations.
+### YOUR INSTRUCTIONS:
+1. ANALYZE THE IMAGE & CORRECT OCR:
+   - Carefully examine the provided image and locate the text bubbles corresponding to the JSON input.
+   - {source_lang} OCR often makes mistakes (e.g., misrecognizing kanji, confusing furigana with main text, missing characters). Internally correct the {source_lang} text based on what is actually written on the image before translating.
+2. CONTEXTUAL CONTINUITY & TRANSLATION:
+   - Refer to previous pages and their "scene_description" in the conversation history to maintain story flow, character relationships, consistent names/terms, and appropriate tone (formal, informal, slang, gendered speech).
+   - Look at the current scene: Who is speaking? To whom? What are their emotions, facial expressions, and actions?
+   - Translate the corrected text into natural, fluent {target_lang}.
+   - Adapt the tone to fit the characters (e.g., use informal language, slang, or polite forms based on their relationships and age).
+   - Localize onomatopoeia, sighs, and sounds (e.g., "お〜っ" -> "Ого-о", "ふい〜っ" -> "Фух", "ドヤ" -> express the smugness contextually).
+   - Handle Japanese punctuation appropriately (e.g., convert full-width dots "．．．" to standard {target_lang} ellipses "...").
+3. OUTPUT FORMAT:
+   - You must output ONLY a valid JSON object.
+   - Include a "scene_description" key with a concise 1-2 sentence description summarizing the current scene, setting, and who is speaking to whom (in {target_lang}).
+   - Maintain the EXACT same block keys as the input JSON (e.g., "block_0", "block_1", ...).
+   - The values must be your final {target_lang} translation.
+   - Do not include any explanations, greetings, or text outside the JSON structure.
+### EXAMPLE OUTPUT:
+{{
+  "scene_description": "Brief 1-2 sentence description of the current scene and speakers in {target_lang}.",
+  "block_0": "Translated text...",
+  "block_1": "Translated text..."
+}}"""
+
     def _perform_translation(self, user_prompt: str, system_prompt: str, image: np.ndarray) -> str:
         """
         Perform translation using direct REST API calls to OpenAI-compatible server.
