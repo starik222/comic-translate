@@ -154,7 +154,8 @@ class BatchProcessor:
             if blk_list:
                 # Get ocr cache key for batch processing
                 ocr_model = settings_page.get_tool_selection('ocr')
-                device = resolve_device(settings_page.is_gpu_enabled())
+                gpu_id = settings_page.get_gpu_device_id() if hasattr(settings_page, 'get_gpu_device_id') else 0
+                device = resolve_device(settings_page.is_gpu_enabled(), device_id=gpu_id)
                 cache_key = self.cache_manager._get_ocr_cache_key(image, source_lang, ocr_model, device)
                 # Use the shared OCR processor from the handler
                 self.ocr_handler.ocr.initialize(self.main_page, source_lang)

@@ -68,15 +68,17 @@ class ChunkMixin:
     def _ensure_inpainter(self: WebtoonBatchProcessor):
         settings_page = self.main_page.settings_page
         inpainter_key = settings_page.get_tool_selection("inpainter")
+        backend = get_inpainter_backend(inpainter_key)
+        gpu_id = settings_page.get_gpu_device_id() if hasattr(settings_page, 'get_gpu_device_id') else 0
+        device = resolve_device(settings_page.is_gpu_enabled(), backend=backend, device_id=gpu_id)
+        cache_key = (inpainter_key, device)
         if (
             self.inpainting.inpainter_cache is None
-            or self.inpainting.cached_inpainter_key != inpainter_key
+            or self.inpainting.cached_inpainter_key != cache_key
         ):
             InpainterClass = inpaint_map[inpainter_key]
-            backend = get_inpainter_backend(inpainter_key)
-            device = resolve_device(settings_page.is_gpu_enabled(), backend=backend)
             self.inpainting.inpainter_cache = InpainterClass(device, backend=backend)
-            self.inpainting.cached_inpainter_key = inpainter_key
+            self.inpainting.cached_inpainter_key = cache_key
 
     def _detect_blocks_for_page(
         self: WebtoonBatchProcessor, image: np.ndarray

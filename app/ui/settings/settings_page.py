@@ -106,6 +106,8 @@ class SettingsPage(QtWidgets.QWidget):
         self.ui.buy_credits_button.clicked.connect(self.open_pricing_page)
         self.ui.sign_out_button.clicked.connect(self.sign_out)
         self.ui.check_update_button.clicked.connect(self.check_for_updates)
+        self.ui.use_gpu_checkbox.stateChanged.connect(self._on_gpu_setting_changed)
+        self.ui.gpu_device_combo.currentIndexChanged.connect(self._on_gpu_setting_changed)
         self._sync_extra_context_limit(self.ui.translator_combo.currentText())
 
     def _sync_extra_context_limit(self, translator: str) -> None:
@@ -137,6 +139,19 @@ class SettingsPage(QtWidgets.QWidget):
         if not is_gpu_available():
             return False
         return self.ui.use_gpu_checkbox.isChecked()
+
+    def get_gpu_device_id(self) -> int:
+        if hasattr(self.ui, 'gpu_device_combo'):
+            idx = self.ui.gpu_device_combo.currentData()
+            if idx is not None:
+                try:
+                    return int(idx)
+                except (ValueError, TypeError):
+                    pass
+            combo_idx = self.ui.gpu_device_combo.currentIndex()
+            if combo_idx >= 0:
+                return combo_idx
+        return 0
 
     def get_llm_settings(self):
         return {
@@ -220,6 +235,7 @@ class SettingsPage(QtWidgets.QWidget):
                 'detector': self.get_tool_selection('detector'),
                 'inpainter': self.get_tool_selection('inpainter'),
                 'use_gpu': self.is_gpu_enabled(),
+                'gpu_device_id': self.get_gpu_device_id(),
                 'hd_strategy': self.get_hd_strategy_settings()
             },
             'llm': self.get_llm_settings(),
@@ -243,6 +259,20 @@ class SettingsPage(QtWidgets.QWidget):
         shortcut_ctrl = getattr(owner, "shortcut_ctrl", None)
         if shortcut_ctrl is not None:
             shortcut_ctrl.apply_shortcuts()
+
+    def _on_gpu_setting_changed(self, *args) -> None:
+        if self._loading_settings:
+            return
+        settings = QSettings("ComicLabs", "ComicTranslate")
+        settings.beginGroup("tools")
+        settings.setValue("use_gpu", self.is_gpu_enabled())
+        settings.setValue("gpu_device_id", self.get_gpu_device_id())
+        settings.endGroup()
+
+        owner = self.window()
+        pipeline = getattr(owner, "pipeline", None)
+        if pipeline is not None and hasattr(pipeline, "release_model_caches"):
+            pipeline.release_model_caches()
 
     def import_font(self, file_paths: list[str]):
 
@@ -379,9 +409,21 @@ class SettingsPage(QtWidgets.QWidget):
             self.ui.detector_combo.setCurrentIndex(-1)
 
         if is_gpu_available():
-            self.ui.use_gpu_checkbox.setChecked(settings.value('use_gpu', False, type=bool))
+            use_gpu = settings.value('use_gpu', False, type=bool)
+            self.ui.use_gpu_checkbox.setChecked(use_gpu)
+            saved_gpu_id = settings.value('gpu_device_id', 0, type=int)
+            found = False
+            for i in range(self.ui.gpu_device_combo.count()):
+                if self.ui.gpu_device_combo.itemData(i) == saved_gpu_id:
+                    self.ui.gpu_device_combo.setCurrentIndex(i)
+                    found = True
+                    break
+            if not found and self.ui.gpu_device_combo.count() > 0:
+                self.ui.gpu_device_combo.setCurrentIndex(0)
+            self.ui.tools_page._update_gpu_widget_visibility()
         else:
             self.ui.use_gpu_checkbox.setChecked(False)
+            self.ui.tools_page.gpu_widget.setVisible(False)
 
         # Load HD strategy settings
         settings.beginGroup('hd_strategy')

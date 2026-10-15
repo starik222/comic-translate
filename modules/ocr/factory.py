@@ -102,7 +102,8 @@ class OCRFactory:
         extras = {}
 
         creds = settings.get_credentials(ocr_key)
-        device = resolve_device(settings.is_gpu_enabled(), effective_backend)
+        gpu_id = settings.get_gpu_device_id() if hasattr(settings, 'get_gpu_device_id') else 0
+        device = resolve_device(settings.is_gpu_enabled(), effective_backend, device_id=gpu_id)
 
         if creds:
             extras["credentials"] = creds
@@ -232,7 +233,8 @@ class OCRFactory:
     
     @staticmethod
     def _create_manga_ocr(settings, backend: str = 'onnx') -> OCREngine:
-        device = resolve_device(settings.is_gpu_enabled(), backend)
+        gpu_id = settings.get_gpu_device_id() if hasattr(settings, 'get_gpu_device_id') else 0
+        device = resolve_device(settings.is_gpu_enabled(), backend, device_id=gpu_id)
         
         if backend.lower() == 'torch' and torch_available():
             from .manga_ocr.engine import MangaOCREngine
@@ -246,7 +248,8 @@ class OCRFactory:
     
     @staticmethod
     def _create_pororo_ocr(settings, backend: str = 'onnx') -> OCREngine:
-        device = resolve_device(settings.is_gpu_enabled(), backend)
+        gpu_id = settings.get_gpu_device_id() if hasattr(settings, 'get_gpu_device_id') else 0
+        device = resolve_device(settings.is_gpu_enabled(), backend, device_id=gpu_id)
         
         if backend.lower() == 'torch' and torch_available():
             from .pororo.engine import PororoOCREngine
@@ -260,10 +263,11 @@ class OCRFactory:
     
     @staticmethod
     def _create_ppocr(settings, lang: str, backend: str = 'onnx') -> OCREngine:
-        device = resolve_device(settings.is_gpu_enabled(), backend)
+        gpu_id = settings.get_gpu_device_id() if hasattr(settings, 'get_gpu_device_id') else 0
+        device = resolve_device(settings.is_gpu_enabled(), backend, device_id=gpu_id)
         if backend.lower() == 'torch' and torch_available():
             from .ppocr.torch.engine import PPOCRv5TorchEngine
-            device = resolve_device(settings.is_gpu_enabled(), 'onnx')
+            device = resolve_device(settings.is_gpu_enabled(), 'onnx', device_id=gpu_id)
             engine = PPOCRv5TorchEngine()
             engine.initialize(lang=lang, device=device, use_text_lines=True)
         else:

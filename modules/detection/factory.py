@@ -31,7 +31,8 @@ class DetectionEngineFactory:
         effective_backend = cls._resolve_backend(backend)
 
         # build cache key
-        device = resolve_device(settings.is_gpu_enabled(), effective_backend)
+        gpu_id = settings.get_gpu_device_id() if hasattr(settings, 'get_gpu_device_id') else 0
+        device = resolve_device(settings.is_gpu_enabled(), effective_backend, device_id=gpu_id)
         cache_key = f"{model_name}_{effective_backend}_{device}"
 
         # Return cached engine if available
@@ -59,7 +60,8 @@ class DetectionEngineFactory:
     @staticmethod
     def _create_rtdetr_v2(settings, backend: str = 'onnx'):
         """Create and initialize RT-DETR-v2 detection engine."""
-        device = resolve_device(settings.is_gpu_enabled(), backend)
+        gpu_id = settings.get_gpu_device_id() if hasattr(settings, 'get_gpu_device_id') else 0
+        device = resolve_device(settings.is_gpu_enabled(), backend, device_id=gpu_id)
         
         if backend.lower() == 'torch' and torch_available():
             from .rtdetr_v2 import RTDetrV2Detection

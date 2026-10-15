@@ -1713,6 +1713,11 @@ then do inpainting on the resized image.</source>
         <translation>Использовать GPU</translation>
     </message>
     <message>
+        <location filename="../../app/ui/settings/tools_page.py" line="110"/>
+        <source>GPU Device</source>
+        <translation>Выбор GPU</translation>
+    </message>
+    <message>
         <location filename="../../app/ui/settings/tools_page.py" line="128"/>
         <source>Crop</source>
         <translation>Обрезать</translation>

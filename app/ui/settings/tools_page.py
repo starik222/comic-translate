@@ -3,7 +3,7 @@ from ..dayu_widgets.label import MLabel
 from ..dayu_widgets.check_box import MCheckBox
 from ..dayu_widgets.spin_box import MSpinBox
 from .utils import create_title_and_combo, set_combo_box_width
-from modules.utils.device import is_gpu_available
+from modules.utils.device import is_gpu_available, get_available_gpus
 
 class ToolsPage(QtWidgets.QWidget):
     def __init__(
@@ -102,8 +102,28 @@ class ToolsPage(QtWidgets.QWidget):
 
 
         self.use_gpu_checkbox = MCheckBox(self.tr("Use GPU"))
-        if not is_gpu_available():
+        self.available_gpus = get_available_gpus()
+        gpu_options = [f"GPU {g['id']}: {g['name']}" for g in self.available_gpus]
+        if not gpu_options:
+            gpu_options = ["GPU 0"]
+
+        self.gpu_widget, self.gpu_device_combo = create_title_and_combo(
+            self.tr("GPU Device"),
+            gpu_options,
+            h4=False
+        )
+        for i, g in enumerate(self.available_gpus):
+            self.gpu_device_combo.setItemData(i, g['id'])
+        set_combo_box_width(self.gpu_device_combo, gpu_options)
+
+        gpu_available = is_gpu_available()
+        if not gpu_available:
             self.use_gpu_checkbox.setVisible(False)
+            self.gpu_widget.setVisible(False)
+        else:
+            self.use_gpu_checkbox.setVisible(True)
+            self._update_gpu_widget_visibility()
+            self.use_gpu_checkbox.stateChanged.connect(self._update_gpu_widget_visibility)
 
 
         layout.addWidget(translator_widget)
@@ -118,9 +138,14 @@ class ToolsPage(QtWidgets.QWidget):
         layout.addWidget(self.hd_strategy_widgets)
         layout.addSpacing(10)
         layout.addWidget(self.use_gpu_checkbox)
+        layout.addWidget(self.gpu_widget)
         layout.addStretch(1)
 
         self._update_hd_strategy_widgets(self.inpaint_strategy_combo.currentIndex())
+
+    def _update_gpu_widget_visibility(self):
+        is_checked = self.use_gpu_checkbox.isChecked()
+        self.gpu_widget.setVisible(is_checked and len(self.available_gpus) > 0)
 
     def _update_hd_strategy_widgets(self, index: int):
         strategy = self.inpaint_strategy_combo.itemText(index)

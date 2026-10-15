@@ -1,4 +1,4 @@
-﻿import os
+import os
 from PySide6 import QtWidgets
 from PySide6 import QtCore
 
@@ -246,6 +246,7 @@ class SettingsPageUI(QtWidgets.QWidget):
         self.crop_margin_spinbox = self.tools_page.crop_margin_spinbox
         self.crop_trigger_spinbox = self.tools_page.crop_trigger_spinbox
         self.use_gpu_checkbox = self.tools_page.use_gpu_checkbox
+        self.gpu_device_combo = self.tools_page.gpu_device_combo
 
         # Credentials
         self.save_keys_checkbox = self.credentials_page.save_keys_checkbox

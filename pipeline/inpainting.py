@@ -48,14 +48,16 @@ class InpaintingHandler:
     def _ensure_inpainter(self):
         settings_page = self.main_page.settings_page
         inpainter_key = settings_page.get_tool_selection('inpainter')
-        if self.inpainter_cache is None or self.cached_inpainter_key != inpainter_key:
-            backend = get_inpainter_backend(inpainter_key)
-            device = resolve_device(settings_page.is_gpu_enabled(), backend)
+        backend = get_inpainter_backend(inpainter_key)
+        gpu_id = settings_page.get_gpu_device_id() if hasattr(settings_page, 'get_gpu_device_id') else 0
+        device = resolve_device(settings_page.is_gpu_enabled(), backend, device_id=gpu_id)
+        cache_key = (inpainter_key, device)
+        if self.inpainter_cache is None or self.cached_inpainter_key != cache_key:
             InpainterClass = inpaint_map[inpainter_key]
             logger.info("pre-inpaint: initializing inpainter '%s' on device %s", inpainter_key, device)
             t0 = time.time()
             self.inpainter_cache = InpainterClass(device, backend=backend)
-            self.cached_inpainter_key = inpainter_key
+            self.cached_inpainter_key = cache_key
             logger.info("pre-inpaint: inpainter initialized in %.2fs", time.time() - t0)
         return self.inpainter_cache
 

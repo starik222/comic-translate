@@ -24,8 +24,10 @@ class OCRHandler:
         if self.main_page.image_viewer.hasPhoto() and self.main_page.image_viewer.rectangles:
             image = self.main_page.image_viewer.get_image_array()
             ocr_model = self.main_page.settings_page.get_tool_selection('ocr')
+            gpu_id = self.main_page.settings_page.get_gpu_device_id() if hasattr(self.main_page.settings_page, 'get_gpu_device_id') else 0
             device = resolve_device(
-                self.main_page.settings_page.is_gpu_enabled()
+                self.main_page.settings_page.is_gpu_enabled(),
+                device_id=gpu_id
             )
             cache_key = self.cache_manager._get_ocr_cache_key(image, source_lang, ocr_model, device)
             

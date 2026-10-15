@@ -7,6 +7,7 @@ import onnxruntime as ort
 from PIL import Image
 
 from modules.ocr.base import OCREngine
+from modules.utils.device import get_providers
 from modules.utils.download import ModelDownloader, ModelID
 from modules.utils.textblock import TextBlock, adjust_text_line_coordinates
 
@@ -25,7 +26,7 @@ SPECIAL_TOKEN_THRESHOLD = 5
 MAX_POSITION_ID = 127
 
 
-def _create_session(model_path: str) -> ort.InferenceSession:
+def _create_session(model_path: str, device: str = "cpu") -> ort.InferenceSession:
     so = ort.SessionOptions()
     so.log_severity_level = 3
     # This decoder makes many tiny step() calls; desktop ORT is faster with one thread.
@@ -35,7 +36,8 @@ def _create_session(model_path: str) -> ort.InferenceSession:
     so.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
     so.enable_cpu_mem_arena = True
     so.enable_mem_pattern = True
-    return ort.InferenceSession(model_path, sess_options=so, providers=["CPUExecutionProvider"])
+    providers = get_providers(device)
+    return ort.InferenceSession(model_path, sess_options=so, providers=providers)
 
 
 class MangaOCRMobileONNXEngine(OCREngine):
@@ -47,10 +49,10 @@ class MangaOCRMobileONNXEngine(OCREngine):
         self.expansion_percentage = 5
 
     def initialize(self, device: str = "cpu", expansion_percentage: int = 5) -> None:
-        self.device = "cpu"
+        self.device = device
         self.expansion_percentage = expansion_percentage
-        if self.model is None:
-            self.model = MangaOCRMobileONNX()
+        if self.model is None or getattr(self.model, "device", None) != device:
+            self.model = MangaOCRMobileONNX(device=device)
 
     def process_image(self, img: np.ndarray, blk_list: list[TextBlock]) -> list[TextBlock]:
         crops: list[np.ndarray] = []
@@ -93,16 +95,17 @@ class MangaOCRMobileONNXEngine(OCREngine):
 
 
 class MangaOCRMobileONNX:
-    def __init__(self):
+    def __init__(self, device: str = "cpu"):
+        self.device = device
         ModelDownloader.get(ModelID.MANGA_OCR_MOBILE_ONNX)
         encoder_path = ModelDownloader.get_file_path(ModelID.MANGA_OCR_MOBILE_ONNX, "encoder.onnx")
         decoder_init_path = ModelDownloader.get_file_path(ModelID.MANGA_OCR_MOBILE_ONNX, "decoder_init.onnx")
         decoder_step_path = ModelDownloader.get_file_path(ModelID.MANGA_OCR_MOBILE_ONNX, "decoder_step.onnx")
         vocab_path = ModelDownloader.get_file_path(ModelID.MANGA_OCR_MOBILE_ONNX, "vocab.txt")
 
-        self.encoder = _create_session(encoder_path)
-        self.decoder_init = _create_session(decoder_init_path)
-        self.decoder_step = _create_session(decoder_step_path)
+        self.encoder = _create_session(encoder_path, device=device)
+        self.decoder_init = _create_session(decoder_init_path, device=device)
+        self.decoder_step = _create_session(decoder_step_path, device=device)
         self.vocab = self._load_vocab(vocab_path)
         self.vocab_size = len(self.vocab)
 

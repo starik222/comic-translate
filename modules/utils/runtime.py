@@ -14,14 +14,18 @@ def configure_runtime() -> None:
     are intentionally not changed here: forcing a bundled CA file would hide
     certificates deliberately installed by an organisation or the user.
     """
-    if sys.platform != "darwin":
-        return
+    if sys.platform == "darwin":
+        candidates = ["/opt/homebrew/bin", "/usr/local/bin", "/opt/local/bin"]
 
-    candidates = ["/opt/homebrew/bin", "/usr/local/bin", "/opt/local/bin"]
-
-    current_path = os.environ.get("PATH", "")
-    # Preserve a user-provided PATH's ordering.  This only extends Finder's
-    # minimal PATH instead of replacing a tool selection that already works.
-    path_entries = [entry for entry in current_path.split(os.pathsep) if entry]
-    path_entries.extend(entry for entry in candidates if os.path.isdir(entry))
-    os.environ["PATH"] = os.pathsep.join(dict.fromkeys(path_entries))
+        current_path = os.environ.get("PATH", "")
+        # Preserve a user-provided PATH's ordering.  This only extends Finder's
+        # minimal PATH instead of replacing a tool selection that already works.
+        path_entries = [entry for entry in current_path.split(os.pathsep) if entry]
+        path_entries.extend(entry for entry in candidates if os.path.isdir(entry))
+        os.environ["PATH"] = os.pathsep.join(dict.fromkeys(path_entries))
+    elif sys.platform == "win32":
+        try:
+            from .device import setup_gpu_dll_directories
+            setup_gpu_dll_directories()
+        except Exception:
+            pass

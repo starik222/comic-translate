@@ -53,8 +53,18 @@ class MIGAN(TorchAutocastMixin, InpaintModel):
         masks: [H, W]
         return: BGR IMAGE
         """
-        import torch  # noqa
-        with torch.no_grad():
+        backend = getattr(self, 'backend', 'onnx')
+        if backend == 'onnx':
+            from contextlib import nullcontext
+            no_grad_ctx = nullcontext()
+        else:
+            try:
+                import torch
+                no_grad_ctx = torch.no_grad()
+            except ImportError:
+                from contextlib import nullcontext
+                no_grad_ctx = nullcontext()
+        with no_grad_ctx:
             if image.shape[0] == 512 and image.shape[1] == 512:
                 return self._pad_forward(image, mask, config)
 
