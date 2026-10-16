@@ -23,4 +23,8 @@ test_*.py
 demo_*.py
 benchmarks/
 
+# Logs
+logs/
+*.log
+
 scripts

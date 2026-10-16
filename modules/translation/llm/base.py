@@ -2,11 +2,18 @@ from typing import Any
 import numpy as np
 from abc import abstractmethod
 import base64
+import logging
+import threading
+from datetime import datetime
 import imkit as imk
 
 from ..base import LLMTranslation
 from ...utils.textblock import TextBlock
 from ...utils.translator_utils import get_raw_text, set_texts_from_json
+from ...utils.paths import get_llm_error_log_path
+
+logger = logging.getLogger(__name__)
+_LOG_LOCK = threading.Lock()
 
 
 class BaseLLMTranslation(LLMTranslation):
@@ -43,6 +50,47 @@ class BaseLLMTranslation(LLMTranslation):
         self.context_pairs = int(llm_settings.get('context_pairs', 3))
         self.temperature = 1.0
         self.max_tokens = 32768
+
+    def _log_translation_error(
+        self,
+        entire_raw_text: str | None,
+        entire_translated_text: str | None,
+        error: Exception,
+    ) -> None:
+        """
+        Log request and response data to a dedicated log file when a translation or parsing error occurs.
+        """
+        try:
+            log_path = get_llm_error_log_path()
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            model_info = getattr(self, "model", None) or getattr(self, "model_name", None) or "unknown"
+            engine_class = self.__class__.__name__
+            error_details = f"{type(error).__name__}: {error}"
+
+            log_entry = (
+                f"\n{'=' * 80}\n"
+                f"[{timestamp}] LLM Translation Error\n"
+                f"Engine: {engine_class} | Model: {model_info}\n"
+                f"Language: {self.source_lang} -> {self.target_lang}\n"
+                f"Error: {error_details}\n"
+                f"{'-' * 80}\n"
+                f"[ENTIRE_RAW_TEXT (SENT)]:\n{entire_raw_text}\n"
+                f"{'-' * 80}\n"
+                f"[ENTIRE_TRANSLATED_TEXT (RECEIVED)]:\n{entire_translated_text}\n"
+                f"{'=' * 80}\n"
+            )
+
+            with _LOG_LOCK:
+                with open(log_path, "a", encoding="utf-8") as f:
+                    f.write(log_entry)
+
+            logger.error(
+                "LLM translation error (%s). Details written to %s",
+                error_details,
+                log_path,
+            )
+        except Exception as log_exc:
+            logger.error("Failed to write to LLM translation error log: %s", log_exc)
         
     def translate(self, blk_list: list[TextBlock], image: np.ndarray, extra_context: str) -> list[TextBlock]:
         """
@@ -62,8 +110,13 @@ class BaseLLMTranslation(LLMTranslation):
         system_prompt = self.get_system_prompt_v2(self.source_lang, self.target_lang)
         user_prompt = entire_raw_text
         
-        entire_translated_text = self._perform_translation(user_prompt, system_prompt, image)
-        set_texts_from_json(blk_list, entire_translated_text)
+        entire_translated_text = None
+        try:
+            entire_translated_text = self._perform_translation(user_prompt, system_prompt, image)
+            set_texts_from_json(blk_list, entire_translated_text)
+        except Exception as e:
+            self._log_translation_error(entire_raw_text, entire_translated_text, e)
+            raise
             
         return blk_list
     

@@ -43,21 +43,25 @@ def get_raw_translation(blk_list: list[TextBlock]):
     return raw_translations_json
 
 def set_texts_from_json(blk_list: list[TextBlock], json_string: str):
+    if not json_string:
+        raise ValueError("No JSON found in LLM response (empty response).")
     json_string = remove_think_block(json_string)
     match = re.search(r"\{[\s\S]*\}", json_string)
-    if match:
-        # Extract the JSON string from the matched regular expression
-        json_string = match.group(0)
-        translation_dict = json.loads(json_string)
-        
-        for idx, blk in enumerate(blk_list):
-            block_key = f"block_{idx}"
-            if block_key in translation_dict:
-                blk.translation = translation_dict[block_key]
-            else:
-                print(f"Warning: {block_key} not found in JSON string.")
-    else:
-        print("No JSON found in the input string.")
+    if not match:
+        raise ValueError("No JSON found in LLM response.")
+
+    # Extract the JSON string from the matched regular expression
+    extracted_json_string = match.group(0)
+    translation_dict = json.loads(extracted_json_string)
+    if not isinstance(translation_dict, dict):
+        raise ValueError(f"Expected JSON object in LLM response, got {type(translation_dict).__name__}")
+    
+    for idx, blk in enumerate(blk_list):
+        block_key = f"block_{idx}"
+        if block_key in translation_dict:
+            blk.translation = translation_dict[block_key]
+        else:
+            print(f"Warning: {block_key} not found in JSON string.")
 
 def remove_think_block(text: str):
     if not text:
