@@ -83,10 +83,55 @@ def _normalize_dict_keys(d: dict) -> dict[str, str]:
     return normalized
 
 
+def _repair_missing_colons(text: str) -> str:
+    """
+    Repairs missing colons after JSON object keys like "block_6" or "scene_description".
+    Handles common LLM formatting mistakes:
+      - 3 quotes total (merged quote between key and value): "block_6 "...value", -> "block_6": "value",
+      - 4 quotes total (two separate quoted strings without colon): "block_6" "value", -> "block_6": "value",
+      - Key in quotes followed by unquoted value without colon: "block_6" *Тук-тук*, -> "block_6": *Тук-тук*,
+      - Unquoted key followed by value without colon: block_6 "value", -> block_6: "value",
+    """
+    # 1. Four quotes / two separate quoted strings without colon:
+    # E.g. "block_6" "value" or "block_6 " "value"
+    text = re.sub(
+        r'(?m)(?:^|(?<=[\{,]))(\s*[\"\']\s*(?:block[_\s\-]?\d+|scene_description|[a-zA-Z0-9_\-]+)\s*[\"\'])\s*(?!:)\s*([\"\'«“])',
+        r'\1: \2',
+        text,
+    )
+
+    # 2. Three quotes / merged quote between key and value:
+    # E.g. "block_6 "...Как же я жалок.",
+    text = re.sub(
+        r'(?m)(?:^|(?<=[\{,]))(\s*[\"\']\s*(?:block[_\s\-]?\d+|scene_description|[a-zA-Z0-9_\-]+)\s*)[\"\'](?!\s*:)\s*([^":,\r\n\s][^\r\n]*?)([\"\'»”])(\s*[,}\r\n]|$)',
+        r'\1": "\2\3\4',
+        text,
+    )
+
+    # 3. Key in quotes followed by unquoted value without colon:
+    # E.g. "block_6" *Тук-тук*, or "block_6 " *Тук-тук*,
+    text = re.sub(
+        r'(?m)(?:^|(?<=[\{,]))(\s*[\"\']\s*(?:block[_\s\-]?\d+|scene_description|[a-zA-Z0-9_\-]+)\s*[\"\'])\s*(?!:)\s*([^":,\{\}\[\]\s\r\n][^\r\n]*)',
+        r'\1: \2',
+        text,
+    )
+
+    # 4. Unquoted key followed by value without colon:
+    # E.g. block_6 "value",
+    text = re.sub(
+        r'(?m)(?:^|(?<=[\{,]))(\s*(?:block[_\s\-]?\d+|scene_description))\s*(?!:)\s*([\"\'«“\*])',
+        r'\1: \2',
+        text,
+    )
+
+    return text
+
+
 def parse_damaged_json(json_string: str, expected_keys: list[str] = None) -> dict[str, str]:
     """
     Attempts to repair and parse a malformed JSON string returned by LLM.
     Handles common LLM formatting issues:
+      - Missing colons after keys (e.g. "block_6 "...value",)
       - Trailing commas before closing braces/brackets
       - Unquoted text values (e.g., "block_1": *Тук-тук*,)
       - Unescaped quotes inside values
@@ -132,19 +177,22 @@ def parse_damaged_json(json_string: str, expected_keys: list[str] = None) -> dic
     except Exception:
         pass
 
-    # Step B: Syntax repairs (comments, trailing commas, unquoted strings, missing commas)
-    if result_dict is None:
-        repaired = candidate_text
+    repaired = candidate_text
 
+    # Step B: Syntax repairs (comments, missing colons, trailing commas, unquoted strings, missing commas)
+    if result_dict is None:
         # 1. Remove single-line comments // ... and multi-line comments /* ... */
         repaired = re.sub(r"(?m)^\s*//.*?$", "", repaired)
         repaired = re.sub(r'(?<![:"\'\\])//.*', "", repaired)
         repaired = re.sub(r'/\*[\s\S]*?\*/', '', repaired)
 
-        # 2. Fix trailing commas before closing braces/brackets
+        # 2. Fix missing colons after keys (e.g. "block_6 "...val" or "block_6" "val")
+        repaired = _repair_missing_colons(repaired)
+
+        # 3. Fix trailing commas before closing braces/brackets
         repaired = re.sub(r",\s*([}\]])", r"\1", repaired)
 
-        # 3. Fix unquoted string values (e.g. "block_1": *Тук-тук*,)
+        # 4. Fix unquoted string values (e.g. "block_1": *Тук-тук*,)
         def quote_unquoted_value(match):
             prefix = match.group(1)
             val = match.group(2).strip()
@@ -165,7 +213,7 @@ def parse_damaged_json(json_string: str, expected_keys: list[str] = None) -> dic
             repaired,
         )
 
-        # 4. Fix missing commas between properties (e.g. "block_0": "val"\n "block_1": "val")
+        # 5. Fix missing commas between properties (e.g. "block_0": "val"\n "block_1": "val")
         repaired = re.sub(
             r'(\"|\d|true|false|null)\s*[\r\n]+\s*([\"\'\w\-]+\s*:)',
             r'\1,\n\2',
@@ -185,7 +233,7 @@ def parse_damaged_json(json_string: str, expected_keys: list[str] = None) -> dic
     # Step C: Try ast.literal_eval for python-style dicts with single quotes
     if result_dict is None:
         try:
-            py_dict_str = candidate_text
+            py_dict_str = repaired
             py_dict_str = re.sub(r"\btrue\b", "True", py_dict_str)
             py_dict_str = re.sub(r"\bfalse\b", "False", py_dict_str)
             py_dict_str = re.sub(r"\bnull\b", "None", py_dict_str)
@@ -199,16 +247,17 @@ def parse_damaged_json(json_string: str, expected_keys: list[str] = None) -> dic
     # Step D: Specialized regex block extractor (fallback for badly malformed or truncated text)
     if result_dict is None:
         result_dict = {}
+        source_text = _repair_missing_colons(repaired if repaired else cleaned)
         key_regex = re.compile(
-            r'([\"\'`]?)([a-zA-Z0-9_\-]+)\1\s*:\s*',
-            flags=re.MULTILINE,
+            r'([\"\'`]?)\s*(block[_\s\-]?\d+|scene_description|[a-zA-Z0-9_\-]+)\s*\1\s*(?::|\s*(?=[\"\'«“\*]))\s*',
+            flags=re.MULTILINE | re.IGNORECASE,
         )
-        matches = list(key_regex.finditer(cleaned))
+        matches = list(key_regex.finditer(source_text))
         for i, m in enumerate(matches):
             key = m.group(2)
             val_start = m.end()
-            val_end = matches[i + 1].start() if i + 1 < len(matches) else len(cleaned)
-            raw_val = cleaned[val_start:val_end]
+            val_end = matches[i + 1].start() if i + 1 < len(matches) else len(source_text)
+            raw_val = source_text[val_start:val_end]
             result_dict[key] = _clean_extracted_value(raw_val)
 
     if not isinstance(result_dict, dict) or not result_dict:
