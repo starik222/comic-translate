@@ -1,0 +1,32 @@
+# Comic Translate - GPU dependencies
+#
+# Note: For PyTorch with CUDA support, install it with your specific CUDA version, e.g.:
+# pip install torch torchvision --index-url https://download.pytorch.org/whl/cu130
+# (or cu128 / cu126 depending on your system CUDA)
+
+mahotas>=1.4.18
+pillow>=11.3.0
+numpy>=2.2.6
+setuptools
+pyside6-essentials>=6.8.0
+msgpack>=1.1.0
+requests>=2.31.0
+certifi>=2026.7.22
+py7zr>=0.20.8
+rarfile>=4.1
+pypdfium2>=5.8.0
+keyring>=25.7.0
+jaconv>=0.3.4
+wget>=3.2
+shapely>=2.1.1
+pyclipper>=1.3.0.post6
+six>=1.16.0
+PhotoshopAPI>=0.9.1
+send2trash>=2.1.0
+PyJWT>=2.8.0
+packaging>=24.0
+natsort>=8.4.0
+deepl>=1.20.0
+
+# ONNX Runtime with GPU acceleration (CUDA 12+)
+onnxruntime-gpu>=1.31.0
